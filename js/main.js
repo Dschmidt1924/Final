@@ -9,14 +9,12 @@ function createElemWithText(
   return elem;
 }
 
-function createSelectOptions(users) {
-  if (!users) {
-    return undefined;
-  }
+function createSelectOptions(usersData) {
+  if (!usersData) return;
 
   const options = [];
 
-  for (const user of users) {
+  for (const user of usersData) {
     const option = document.createElement("option");
     option.value = user.id;
     option.textContent = user.name;
@@ -141,28 +139,37 @@ function populateSelectMenu(usersData) {
 async function getUsers() {
   try {
     const response = await fetch("https://jsonplaceholder.typicode.com/users");
-    const data = await response.json();
-    return data;
-  } catch (err) {
-    console.error(err);
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch users data");
+    }
+
+    const usersData = await response.json();
+    return usersData;
+  } catch (error) {
+    console.error("Error fetching users data:", error);
+    return null;
   }
 }
 
-async function getUserPosts(id) {
-  if (!id) {
-    console.error("No user ID provided");
+async function getUserPosts(userId) {
+  if (!userId) {
     return undefined;
   }
-
   try {
     const response = await fetch(
-      `https://jsonplaceholder.typicode.com/posts?userId=${id}`
+      `https://jsonplaceholder.typicode.com/posts?userId=${userId}`
     );
-    const data = await response.json();
-    return data;
-  } catch (err) {
-    console.error(err);
-    return undefined;
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch user posts");
+    }
+
+    const userPosts = await response.json();
+    return userPosts;
+  } catch (error) {
+    console.error("Error fetching user posts:", error);
+    return null;
   }
 }
 
@@ -170,19 +177,20 @@ async function getUser(userId) {
   if (!userId) {
     return undefined;
   }
-
   try {
     const response = await fetch(
       `https://jsonplaceholder.typicode.com/users/${userId}`
     );
+
     if (!response.ok) {
       throw new Error("Failed to fetch user data");
     }
+
     const userData = await response.json();
     return userData;
   } catch (error) {
     console.error("Error fetching user data:", error);
-    throw error;
+    return null;
   }
 }
 
@@ -190,7 +198,6 @@ async function getPostComments(postId) {
   if (!postId) {
     return undefined;
   }
-
   try {
     const response = await fetch(
       `https://jsonplaceholder.typicode.com/comments?postId=${postId}`
@@ -202,7 +209,7 @@ async function getPostComments(postId) {
     return commentsData;
   } catch (error) {
     console.error("Error fetching post comments:", error);
-    throw error;
+    return null;
   }
 }
 
@@ -250,9 +257,16 @@ async function createPosts(posts) {
 
 const displayPosts = async (posts) => {
   let myMain = document.querySelector("main");
-  let element = posts
-    ? await createPosts(posts)
-    : document.querySelector("main p");
+
+  if (!posts || posts.length === 0) {
+    let defaultText = document.createElement("p");
+    defaultText.textContent = "Select an Employee to display their posts.";
+    defaultText.classList.add("default-text");
+    myMain.append(defaultText);
+    return defaultText;
+  }
+
+  let element = await createPosts(posts);
   myMain.append(element);
   return element;
 };
@@ -262,21 +276,21 @@ function toggleComments(event, postId) {
     return undefined;
   }
   event.target.listener = true;
-  let section = toggleCommentSection(postId);
-  let button = toggleCommentButton(postId);
+  const section = toggleCommentSection(postId);
+  const button = toggleCommentButton(postId);
   return [section, button];
 }
 
-const refreshPosts = async (posts) => {
-  if (!posts) {
+async function refreshPosts(postsData) {
+  if (!postsData) {
     return undefined;
   }
-  let buttons = removeButtonListeners();
-  let myMain = deleteChildElements(document.querySelector("main"));
-  let fragment = await displayPosts(posts);
-  let button = addButtonListeners();
-  return [buttons, myMain, fragment, button];
-};
+  const removeButtons = removeButtonListeners();
+  const main = deleteChildElements(document.querySelector("main"));
+  const fragment = await displayPosts(postsData);
+  const addButtons = addButtonListeners();
+  return [removeButtons, main, fragment, addButtons];
+}
 
 const selectMenuChangeEventHandler = async (e) => {
   if (!e) {
@@ -293,28 +307,18 @@ const selectMenuChangeEventHandler = async (e) => {
   }
 };
 
-const initPage = async () => {
-  try {
-    let users = await getUsers();
-    let select = populateSelectMenu(users);
-    return [users, select];
-  } catch (error) {
-    console.error("An error occurred in initPage: ", error);
-    return null;
-  }
-};
+async function initPage() {
+  const users = await getUsers();
+  const select = populateSelectMenu(users);
+  return [users, select];
+}
 
 function initApp() {
   initPage().then(([users, select]) => {
-    let selectMenu = document.getElementById("selectMenu");
-    if (selectMenu) {
-      selectMenu.appendChild(select);
-      selectMenu.addEventListener(
-        "change",
-        selectMenuChangeEventHandler,
-        false
-      );
-    }
+    const selectMenu = document.getElementById("selectMenu");
+    selectMenu.addEventListener("change", (event) => {
+      selectMenuChangeEventHandler(event);
+    });
   });
 }
 
